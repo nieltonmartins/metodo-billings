@@ -510,11 +510,19 @@ function renderCalendario() {
     const ultimoDiaMes   = new Date(anoAtual, mesAtual + 1, 0);
     const totalDias      = ultimoDiaMes.getDate();
 
+    // 🔥 Dia da semana do dia 1 (0 = DOM, 1 = SEG, ...)
+    const inicioSemana = primeiroDiaMes.getDay();
+
+    // 🔹 Espaços vazios antes do dia 1
+    for (let i = 0; i < inicioSemana; i++) {
+        grid.innerHTML += `<div class="h-14"></div>`;
+    }
+
     // 🔹 Lógica clínica
     const diaApice = detectarApice(anotacoes);
     const posOvulatorio = calcularPosOvulatorio(anotacoes);
 
-    // 🔹 Loop real do mês
+    // 🔹 Loop real dos dias do mês
     for (let dia = 1; dia <= totalDias; dia++) {
 
         // Busca anotação pela DATA real
@@ -568,8 +576,6 @@ function renderCalendario() {
         grid.innerHTML += content + `</div>`;
     }
 }
-
-
 
 
         function renderLista() {
