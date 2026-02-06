@@ -1,0 +1,874 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MOB - Sistema Completo - Mirelly Santos</title>
+    
+    <!-- SDKs do Firebase (Backend) -->
+    <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-firestore-compat.js"></script>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+        <style>
+        .view-content { display: none; }
+        .view-content.active { display: block; }
+        .selo-grid-item { cursor: pointer; border: 2px solid transparent; }
+        
+        /* ===============================
+        MENU INFERIOR - ESTADO ATIVO
+        =============================== */
+        .nav-btn {
+            color: #9ca3af; /* cinza */
+        }
+
+        .nav-btn.active {
+            color: #2563eb; /* azul */
+        }
+
+
+/* Gotas menores (para múltiplas gotas) */
+.gota.pequena {
+    width: 8px;
+    height: 11px;
+}
+
+.gota.pequena::before {
+    border-left: 4px solid transparent;
+    border-right: 4px solid transparent;
+    border-bottom: 5px solid white;
+}
+
+
+
+    </style>
+
+
+    <style>
+        .view-content { display: none; }
+        .view-content.active { display: block; }
+        .selo-grid-item { cursor: pointer; border: 2px solid transparent; transition: 0.2s; height: 50px; width: 35px; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 12px; flex-shrink: 0; }
+        .selo-grid-item.selected { border-color: #2563eb; transform: scale(1.1); box-shadow: 0 4px 10px rgba(0,0,0,0.2); }
+        
+        /* Cores Oficiais MOB */
+        .bg-red { background-color: #ff0000; color: white; }
+        .bg-yellow { background-color: #ffff00; color: black; }
+        .bg-green { background-color: #008000; color: white; }
+        .bg-white { background-color: #ffffff; color: black; border: 1px solid #ddd; }
+        .bg-gray { background-color: #a09090; color: black; border: 1px solid #ddd; }
+        
+        .hide-scroll::-webkit-scrollbar { display: none; }
+        .tab-active { color: #2563eb; border-bottom: 2px solid #2563eb; }
+        
+        /* Estilo Tabela PDF */
+        .grade-pdf-cell { width: 40px; border: 1px solid #e5e7eb; text-align: center; font-size: 10px; }
+
+        /* Estilo do campo de observação conforme imagem */
+        .input-obs { width: 100%; padding: 16px; border-radius: 12px; border: 1px solid #e2e8f0; color: #718096; resize: none; outline: none; }
+    </style>
+</head>
+<body class="bg-gray-50 pb-24">
+
+    <!-- Header -->
+    <header class="bg-white p-4 shadow-sm sticky top-0 z-50">
+        <div class="flex justify-between items-center max-w-4xl mx-auto">
+            <div>
+                <h1 class="text-xl font-bold text-blue-900">Anotações</h1>
+                <p class="text-xs text-gray-500">Mirelly Santos • <span id="sync-status" class="text-red-400">Desconectado</span></p>
+            </div>
+            <div class="text-blue-600 flex gap-4">
+                <i class="fas fa-sync-alt text-xl" title="Recarregar" onclick="location.reload()"></i>
+                <i class="fas fa-plus-circle text-xl" title="Sem função"></i>
+                <i class="fas fa-trash-alt text-xl cursor-pointer text-red-500" title="Apagar todas as anotações" onclick="confirmarApagarTudo()">
+    </i>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-4xl mx-auto p-4">
+
+        <!-- 1. TELA DE ANOTAÇÃO (NOVA ANOTAÇÃO) -->
+        <section id="view-anotar" class="view-content active space-y-6">
+            <div class="bg-white p-6 rounded-2xl shadow-sm border">
+                <div class="flex gap-4 mb-6">
+                    <div class="flex-1">
+                        <label class="block text-xs font-bold text-gray-400 mb-1 uppercase">Dia do Ciclo</label>
+                        <input type="number" id="f-dia" value="1" class="w-full p-2 border-b text-lg font-bold outline-none focus:border-blue-500">
+                    </div>
+                    <div class="flex-[2]">
+                        <label class="block text-xs font-bold text-gray-400 mb-1 uppercase">Data</label>
+                        <input type="date" id="f-data" class="w-full p-2 border-b text-lg outline-none focus:border-blue-500">
+                    </div>
+                </div>
+
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-bold text-gray-400 mb-2">O QUE EU SINTO</label>
+                        <select id="f-sinto" onchange="sugerirSelo()" class="w-full p-3 bg-gray-50 rounded-xl border-none ring-1 ring-gray-200">
+                            <option value="">Selecione...</option><option>Seca</option><option>Úmida</option><option>Molhada</option><option>Escorregadia</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold text-gray-400 mb-2">O QUE EU VEJO</label>
+                        <select id="f-vejo" onchange="sugerirSelo()" class="w-full p-3 bg-gray-50 rounded-xl border-none ring-1 ring-gray-200">
+                            <option value="">Selecione...</option><option>Pegajoso</option><option>Pastoso</option><option>Cremoso</option><option>Gel</option><option>Clara de ovo</option><option>Sangue</option><option>Mancha</option>
+                        </select>
+                    </div>
+
+                    <div class="flex items-center gap-4 bg-gray-50 p-3 rounded-xl ring-1 ring-gray-200">
+                        <i class="fas fa-thermometer-half text-red-500"></i>
+                        <input type="number" id="f-temp" step="0.1" placeholder="Temperatura Corporal (ex: 36.5)" class="bg-transparent w-full outline-none">
+                    </div>
+
+                    <!-- GRADE DE SELOS COMPLETA -->
+                    <div>
+                        <label class="block text-xs font-bold text-gray-400 mb-3 uppercase">Selecione o Selo / Símbolo</label>
+                        <div class="flex overflow-x-auto gap-2 p-2 hide-scroll bg-gray-50 rounded-xl border border-dashed border-gray-300" id="selo-picker"></div>
+                    </div>
+
+                    <!-- Ato Conjugal -->
+                    <div class="flex items-center justify-between p-4 bg-red-50 rounded-xl border border-red-100">
+                        <span class="text-red-800 font-medium">Ato Conjugal (Relação)</span>
+                        <button onclick="toggleRelacao()" id="btn-relacao" class="w-10 h-10 rounded-full bg-white flex items-center justify-center shadow text-gray-300">
+                            <i class="fas fa-heart"></i>
+                        </button>
+                    </div>
+
+                    <!-- NOVO CAMPO DE OBSERVAÇÕES -->
+                    <div>
+                        <textarea id="f-obs" class="input-obs" placeholder="Observações (Medicação, Stress, etc)" rows="3"></textarea>
+                    </div>
+
+                    <button id="btn-salvar"class="w-full bg-blue-700 text-white py-4 rounded-xl font-bold shadow-lg shadow-blue-200">Salvar no Diário</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- 2. VISUALIZAÇÃO CALENDÁRIO -->
+        <section id="view-calendario" class="view-content">
+            <div class="bg-white p-4 rounded-2xl shadow-sm border">
+                <div class="flex justify-between items-center mb-4">
+                    <i class="fas fa-chevron-left text-blue-500" onclick="mudarMes(-1)"></i>
+                    <h2 id="calendar-title" class="font-bold text-gray-700 uppercase"></h2>
+                    <i class="fas fa-chevron-right text-blue-500" onclick="mudarMes(1)"></i>
+                </div>
+                <div class="grid grid-cols-7 gap-1 text-center text-[10px] text-gray-400 mb-2">
+                    <div>DOM</div><div>SEG</div><div>TER</div><div>QUA</div><div>QUI</div><div>SEX</div><div>SÁB</div>
+                </div>
+                <div id="calendar-grid" class="grid grid-cols-7 gap-2"></div>
+            </div>
+        </section>
+
+        <!-- 3. VISUALIZAÇÃO LISTA -->
+        <section id="view-lista" class="view-content space-y-3">
+            <div id="lista-container"></div>
+        </section>
+
+        <!-- 4. VISUALIZAÇÃO TABELA -->
+        <section id="view-tabela" class="view-content">
+            <div class="bg-white p-2 rounded-xl shadow-sm border overflow-x-auto hide-scroll">
+                <table class="w-full border-collapse">
+                    <tr id="tab-dia-mes" class="bg-gray-50"></tr>
+                    <tr id="tab-selos"></tr>
+                    <tr id="tab-temp"></tr>
+                    <tr id="tab-relacao"></tr>
+                </table>
+            </div>
+        </section>
+
+        <!-- 5. VISUALIZAÇÃO GRÁFICO -->
+        <section id="view-grafico" class="view-content">
+            <div class="bg-white p-4 rounded-2xl border shadow-sm">
+                <canvas id="tempChart"></canvas>
+            </div>
+        </section>
+
+    </main>
+
+<nav class="fixed bottom-0 left-0 right-0 bg-white border-t flex justify-around p-3 z-50">
+    <button data-tab="view-anotar" onclick="changeTab('view-anotar')" class="nav-btn flex flex-col items-center">
+        <i class="fas fa-edit"></i>
+        <span class="text-[10px]">Anotar</span>
+    </button>
+
+    <button data-tab="view-calendario" onclick="changeTab('view-calendario')" class="nav-btn flex flex-col items-center">
+        <i class="fas fa-calendar-alt"></i>
+        <span class="text-[10px]">Calendário</span>
+    </button>
+
+    <button data-tab="view-lista" onclick="changeTab('view-lista')" class="nav-btn flex flex-col items-center">
+        <i class="fas fa-list"></i>
+        <span class="text-[10px]">Lista</span>
+    </button>
+
+    <button data-tab="view-tabela" onclick="changeTab('view-tabela')" class="nav-btn flex flex-col items-center">
+        <i class="fas fa-th"></i>
+        <span class="text-[10px]">Tabela</span>
+    </button>
+
+    <button data-tab="view-grafico" onclick="changeTab('view-grafico')" class="nav-btn flex flex-col items-center">
+        <i class="fas fa-chart-line"></i>
+        <span class="text-[10px]">Gráfico</span>
+    </button>
+</nav>
+
+
+    <script>
+        // CONFIGURAÇÃO FIREBASE (Backend)
+        const firebaseConfig = {
+        apiKey: "AIzaSyBPRK62-uOtB-vkOKeYLIIkeMmf7TJbkv4",
+        authDomain: "metodo-billings.firebaseapp.com",
+        projectId: "metodo-billings",
+        storageBucket: "metodo-billings.firebasestorage.app",
+        messagingSenderId: "680467226445",
+        appId: "1:680467226445:web:dd7c70fc408d03972d2104"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        const casalID = "mirelly_santos"; // Grupo para marido e mulher
+
+        let anotacoes = [];
+        let relacaoAtiva = false;
+        let seloSelecionado = null;
+        let salvando = false;
+        let mesAtual = new Date().getMonth(); // 0 = Janeiro
+        let anoAtual = new Date().getFullYear();
+        let dataInicioCiclo = null;
+        let unsubscribeUpdates = null;
+
+        const selosDisponiveis = [
+            // 🔴 Sangramento
+            { id: 'r1', class: 'bg-red', txt: '' },
+            { id: 'r2', class: 'bg-red', droplet: 'half' },
+
+            // 🟨 Infertilidade
+            { id: 'y0', class: 'bg-yellow', txt: '' },
+            { id: 'y1', class: 'bg-yellow', txt: '1' },
+            { id: 'y2', class: 'bg-yellow', txt: '2' },
+            { id: 'y3', class: 'bg-yellow', txt: '3' },
+
+            // ⬜ Observações
+            { id: 'w_obs', class: 'bg-white', icon: 'fa-baby' },          // observação interna
+            { id: 'w_none', class: 'bg-white', txt: '' },                 // sem observação
+            { id: 't_only', class: 'bg-gray', icon: 'fa-thermometer-half' }, // só temperatura
+
+            // 🟩 Fertilidade
+            { id: 'g0', class: 'bg-green', txt: '' },
+            { id: 'g1', class: 'bg-green', txt: '1' },
+            { id: 'g2', class: 'bg-green', txt: '2' },
+            { id: 'g3', class: 'bg-green', txt: '3' }
+        ];
+
+function renderConteudoSelo(s) {
+    if (!s) return '';
+
+    // 🔴 Sangramento intenso → 3 gotas
+        if (s.id === 'r1') {
+            return `
+                <div class="grid grid-cols-2 gap-x-1 gap-y-0 justify-items-center">
+                    <i class="fa-solid fa-droplet text-white text-[11px]"></i>
+                    <i class="fa-solid fa-droplet text-white text-[11px]"></i>
+                    <i class="fa-solid fa-droplet text-white text-[11px] col-span-2"></i>
+                </div>
+            `;
+        }
+
+    // 🔴 Sangramento leve → 1 gota
+    if (s.id === 'r2') {
+        return `
+            <div class="flex items-center justify-center">
+                <i class="fa-solid fa-droplet text-white text-[12px]"></i>
+            </div>
+        `;
+    }
+
+    // 🌡️ Ícones (temperatura, bebê, etc)
+    if (s.icon) {
+        return `<i class="fas ${s.icon}"></i>`;
+    }
+
+    // 🔢 Texto
+    return s.txt || '';
+}
+
+
+        function initSeloPicker() {
+            const container = document.getElementById('selo-picker');
+            if (!container) return;
+            container.innerHTML = '';
+
+
+            // 🔖 Legendas oficiais dos selos (Billings)
+            const legendaSelos = {
+                r1: 'Sangramento',
+                r2: 'Sangramento leve',
+
+                y0: 'Infertilidade - seca',
+                y1: 'Muco espesso (infértil)',
+                y2: 'Muco em mudança',
+                y3: 'Final do padrão infértil',
+
+                w_obs: 'Observação interna (sem muco visível)',
+                w_none: 'Sem observação',
+
+                t_only: 'Registro apenas de temperatura basal',
+
+                g0: 'Início da fertilidade',
+                g1: 'Muco fértil',
+                g2: 'Fertilidade elevada',
+                g3: 'Máxima fertilidade (possível Ápice)'
+            };
+
+selosDisponiveis.forEach(s => {
+    const div = document.createElement('div');
+    div.className = `selo-grid-item ${s.class}`;
+
+    // 🔥 AQUI É O PONTO CRÍTICO
+    div.innerHTML = renderConteudoSelo(s);
+
+    div.title = legendaSelos[s.id] || '';
+
+    div.onclick = () => {
+        document
+            .querySelectorAll('.selo-grid-item')
+            .forEach(i => i.classList.remove('selected'));
+
+        div.classList.add('selected');
+        seloSelecionado = s;
+    };
+
+    container.appendChild(div);
+});
+
+
+        }
+
+
+        function toggleRelacao() {
+            relacaoAtiva = !relacaoAtiva;
+            document.getElementById('btn-relacao').className = relacaoAtiva 
+                ? "w-10 h-10 rounded-full bg-red-500 flex items-center justify-center shadow text-white" 
+                : "w-10 h-10 rounded-full bg-white flex items-center justify-center shadow text-gray-300";
+        }
+
+        // SALVAR NO FIRESTORE
+async function salvar() {
+    const btn = document.getElementById('btn-salvar');
+    if (salvando) return;
+
+    if (!seloSelecionado) {
+        alert("Selecione um selo!");
+        return;
+    }
+
+    salvando = true;
+    btn.disabled = true;
+    btn.textContent = "Sincronizando...";
+
+    try {
+        const dataValor = document.getElementById('f-data').value;
+
+        const payload = {
+            diaCiclo: parseInt(document.getElementById('f-dia').value),
+            data: dataValor,
+            sinto: document.getElementById('f-sinto').value,
+            vejo: document.getElementById('f-vejo').value,
+            temp: document.getElementById('f-temp').value || null,
+            obs: document.getElementById('f-obs').value || '',
+            selo: seloSelecionado,
+            relacao: relacaoAtiva,
+            atualizadoEm: firebase.firestore.FieldValue.serverTimestamp()
+        };
+
+        await db
+            .collection('casais')
+            .doc(casalID)
+            .collection('anotacoes')
+            .doc(dataValor)
+            .set(payload, { merge: true });
+
+        limparForm();
+        console.log("✔️ Salvo");
+
+    } catch (e) {
+        console.error("❌ Erro:", e);
+        alert("Erro ao salvar");
+    }
+
+    // 🔥 RESET GARANTIDO (fora do fluxo Firebase)
+    salvando = false;
+    btn.disabled = false;
+    btn.textContent = "Salvar no Diário";
+}
+
+
+
+function limparForm() {
+    relacaoAtiva = false;
+    seloSelecionado = null;
+
+    // Reset relação
+    const btnRel = document.getElementById('btn-relacao');
+    if (btnRel) {
+        btnRel.className =
+            "w-10 h-10 rounded-full bg-white flex items-center justify-center shadow text-gray-300";
+    }
+
+    // Limpa selos
+    document.querySelectorAll('.selo-grid-item')
+        .forEach(i => i.classList.remove('selected'));
+
+    // Limpa campos
+    document.getElementById('f-sinto').value = "";
+    document.getElementById('f-vejo').value = "";
+    document.getElementById('f-temp').value = "";
+    document.getElementById('f-obs').value = "";
+
+    // 👉 AVANÇA AUTOMATICAMENTE PARA O PRÓXIMO DIA
+    const dataAtual = parseDataLocal(document.getElementById('f-data').value);
+    dataAtual.setDate(dataAtual.getDate() + 1);
+
+    document.getElementById('f-data').value = formatDataLocal(dataAtual);
+
+    // 👉 Atualiza dia do ciclo
+    if (dataInicioCiclo) {
+        const diffTime = dataAtual - dataInicioCiclo;
+        const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24)) + 1;
+        document.getElementById('f-dia').value = diffDays > 0 ? diffDays : 1;
+    }
+}
+
+
+
+        // SINCRONIZAÇÃO EM TEMPO REAL (Para marido e mulher)
+function listenUpdates() {
+    db.collection('casais')
+        .doc(casalID)
+        .collection('anotacoes')
+        .orderBy('data')
+        .onSnapshot(snapshot => {
+
+            anotacoes = [];
+            snapshot.forEach(doc => anotacoes.push(doc.data()));
+
+            // 🔥 DEFINIÇÃO CORRETA DO INÍCIO DO CICLO
+            const inicio = anotacoes.find(a => a.diaCiclo === 1);
+
+            if (inicio && inicio.data) {
+                dataInicioCiclo = parseDataLocal(inicio.data);
+            }
+
+            document.getElementById('sync-status').innerText = "Sincronizado";
+            document.getElementById('sync-status').className = "text-green-500";
+        });
+}
+
+
+function changeTab(tabId) {
+    // Views
+    document.querySelectorAll('.view-content')
+        .forEach(v => v.classList.remove('active'));
+
+    document.getElementById(tabId).classList.add('active');
+
+    // Menu inferior
+    document.querySelectorAll('.nav-btn')
+        .forEach(b => b.classList.remove('active'));
+
+    const btnAtivo = document.querySelector(`.nav-btn[data-tab="${tabId}"]`);
+    if (btnAtivo) btnAtivo.classList.add('active');
+
+    // Renderizações
+    if (tabId === 'view-anotar') initSeloPicker();
+    if (tabId === 'view-calendario') renderCalendario();
+    if (tabId === 'view-lista') renderLista();
+    if (tabId === 'view-tabela') renderTabela();
+    if (tabId === 'view-grafico') renderGrafico();
+}
+
+        // Funções de renderização originais mantidas
+function renderCalendario() {
+    const grid = document.getElementById('calendar-grid');
+    if (!grid) return;
+
+    // 🔹 Atualiza título do calendário (mês / ano)
+    const titulo = document.getElementById('calendar-title');
+    if (titulo) {
+        const nomeMes = new Date(anoAtual, mesAtual)
+            .toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+        titulo.innerText = nomeMes;
+    }
+
+    grid.innerHTML = "";
+
+    // 🔹 Datas base do mês atual
+    const primeiroDiaMes = new Date(anoAtual, mesAtual, 1);
+    const ultimoDiaMes   = new Date(anoAtual, mesAtual + 1, 0);
+    const totalDias      = ultimoDiaMes.getDate();
+
+    // 🔹 Lógica clínica
+    const diaApice = detectarApice(anotacoes);
+    const posOvulatorio = calcularPosOvulatorio(anotacoes);
+
+    // 🔹 Loop real do mês
+    for (let dia = 1; dia <= totalDias; dia++) {
+
+        // Busca anotação pela DATA real
+        const anot = anotacoes.find(a => {
+            if (!a.data) return false;
+            const d = parseDataLocal(a.data);
+            return (
+                d.getDate() === dia &&
+                d.getMonth() === mesAtual &&
+                d.getFullYear() === anoAtual
+            );
+        });
+
+        const dPlus = posOvulatorio[dia];
+
+        let content = `
+            <div class="h-14 border rounded-xl flex flex-col items-center justify-center relative bg-white">
+                <span class="text-[10px] absolute top-1 left-1">${dia}</span>
+        `;
+
+        if (anot) {
+            content = `
+                <div class="h-14 border rounded-xl flex flex-col items-center justify-center relative bg-white shadow-sm ring-1 ring-blue-100">
+                    <span class="text-[10px] absolute top-1 left-1 font-bold text-blue-600">${dia}</span>
+
+                    <!-- ⭐ ÁPICE -->
+                    ${
+                        parseInt(anot.diaCiclo) === parseInt(diaApice)
+                            ? `<i class="fas fa-star text-yellow-400 absolute -top-1 -left-1 text-[10px]"></i>`
+                            : ''
+                    }
+
+                    <!-- D+1 / D+2 / D+3 -->
+                    ${
+                        dPlus
+                            ? `<span class="absolute bottom-0 left-0 right-0 text-[8px] text-gray-500 font-semibold">${dPlus}</span>`
+                            : ''
+                    }
+
+                    <div class="w-6 h-8 ${anot.selo.class} rounded-sm mt-2 flex items-center justify-center text-[10px] relative">
+                        ${
+                            anot.relacao
+                                ? `<i class="fas fa-heart text-red-600 absolute -top-1 -right-1 text-[8px] bg-white rounded-full p-0.5"></i>`
+                                : ''
+                        }
+                        ${renderConteudoSelo(anot.selo)}
+                    </div>
+            `;
+        }
+
+        grid.innerHTML += content + `</div>`;
+    }
+}
+
+
+
+
+        function renderLista() {
+            const container = document.getElementById('lista-container');
+            container.innerHTML = anotacoes.map(a => `
+                <div class="bg-white p-4 rounded-xl border flex gap-4 items-center">
+                    <div class="w-10 h-14 ${a.selo.class} rounded flex items-center justify-center font-bold">
+                        ${renderConteudoSelo(a.selo)}
+                    </div>
+                    <div class="flex-1">
+                        <div class="flex justify-between items-center">
+                            <span class="font-bold text-blue-900">Dia ${a.diaCiclo} • ${a.sinto}</span>
+                            ${a.relacao ? '<i class="fas fa-heart text-red-500"></i>' : ''}
+                        </div>
+                        <p class="text-xs text-gray-400">${a.vejo} • Temp: ${a.temp || '--'}°C</p>
+                        ${a.obs ? `<p class="text-[10px] italic text-gray-500 mt-1 border-t pt-1">${a.obs}</p>` : ''}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function renderTabela() {
+            const rDia = document.getElementById('tab-dia-mes');
+            const rSelo = document.getElementById('tab-selos');
+            const rTemp = document.getElementById('tab-temp');
+            const rRel = document.getElementById('tab-relacao');
+
+            rDia.innerHTML = '<td class="grade-pdf-cell bg-gray-50">DIA</td>';
+            rSelo.innerHTML = '<td class="grade-pdf-cell bg-gray-100">SELO</td>';
+            rTemp.innerHTML = '<td class="grade-pdf-cell bg-gray-100">TEMP</td>';
+            rRel.innerHTML = '<td class="grade-pdf-cell bg-gray-100">ATO</td>';
+
+            for(let i=1; i<=31; i++) {
+                const a = anotacoes.find(x => parseInt(x.diaCiclo) === i);
+                rDia.innerHTML += `<td class="grade-pdf-cell">${i}</td>`;
+                rSelo.innerHTML += `<td class="grade-pdf-cell ${a ? a.selo.class : ''} h-10">${a ? renderConteudoSelo(a.selo) : ''}</td>`;
+                rTemp.innerHTML += `<td class="grade-pdf-cell text-[8px]">${a ? a.temp : ''}</td>`;
+                rRel.innerHTML += `<td class="grade-pdf-cell">${a && a.relacao ? '<i class="fas fa-heart text-red-500"></i>' : ''}</td>`;
+            }
+        }
+
+        let chart;
+        function renderGrafico() {
+            const ctx = document.getElementById('tempChart').getContext('2d');
+            if(chart) chart.destroy();
+            chart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: anotacoes.map(a => a.diaCiclo),
+                    datasets: [{ label: 'Temp Basal', data: anotacoes.map(a => a.temp), borderColor: '#ef4444', tension: 0.1 }]
+                }
+            });
+        }
+
+        function sugerirSelo() {
+            const sinto = document.getElementById('f-sinto').value;
+            const vejo  = document.getElementById('f-vejo').value;
+            const temp  = parseFloat(document.getElementById('f-temp').value);
+
+            let seloId = null;
+            if (!document.querySelector('.selo-grid-item')) return;
+            // 🌡️ REGRA 1 — Somente temperatura
+            if (!sinto && !vejo && temp) {
+                seloId = 't_only';
+            }
+
+            // 🔴 Sangramento tem prioridade
+            else if (vejo === 'Sangue') {
+                seloId = 'r1';
+            }
+
+            // 🟨 Infertilidade
+            else if (sinto === 'Seca' && ['','Mancha','Nada'].includes(vejo)) {
+                seloId = 'y0';
+            }
+            else if (sinto === 'Seca') {
+                seloId = 'y1';
+            }
+
+            // 🟩 Fertilidade
+            else if (sinto === 'Úmida' && vejo === 'Cremoso') {
+                seloId = 'g1';
+            }
+            else if (sinto === 'Molhada' && vejo === 'Gel') {
+                seloId = 'g2';
+            }
+            else if (sinto === 'Escorregadia' && vejo === 'Clara de ovo') {
+                seloId = 'g3';
+            }
+
+            // ❌ Se nenhuma regra aplicar, não sugere nada
+            if (!seloId) return;
+
+            const selo = selosDisponiveis.find(s => s.id === seloId);
+            if (!selo) return;
+
+            // Atualiza UI
+            document
+                .querySelectorAll('.selo-grid-item')
+                .forEach(i => i.classList.remove('selected'));
+
+            const index = selosDisponiveis.indexOf(selo);
+            const el = document.querySelectorAll('.selo-grid-item')[index];
+
+            if (el) {
+                el.classList.add('selected');
+                seloSelecionado = selo;
+            }
+        }
+
+
+
+        function detectarApice(anotacoes) {
+            let ultimoDiaEscorregadio = null;
+
+            anotacoes.forEach(a => {
+                if (
+                    a.sinto === 'Escorregadia' &&
+                    a.vejo === 'Clara de ovo'
+                ) {
+                    ultimoDiaEscorregadio = a.diaCiclo;
+                }
+            });
+
+            return ultimoDiaEscorregadio;
+        }
+
+        function calcularPosOvulatorio(anotacoes) {
+            const apice = detectarApice(anotacoes);
+            if (!apice) return {};
+
+            const dias = {};
+            let valido = true;
+
+            for (let i = 1; i <= 3; i++) {
+                const diaAtual = apice + i;
+                const anot = anotacoes.find(a => parseInt(a.diaCiclo) === diaAtual);
+
+                if (anot) {
+                    const voltouMucoFertil =
+                        anot.sinto === 'Escorregadia' ||
+                        (anot.sinto === 'Molhada' && anot.vejo === 'Gel') ||
+                        anot.vejo === 'Clara de ovo';
+
+                    if (voltouMucoFertil) {
+                        valido = false;
+                        break;
+                    }
+                }
+
+                dias[diaAtual] = `D+${i}`;
+            }
+
+            return valido ? dias : {};
+        }
+        function mudarMes(delta) {
+            mesAtual += delta;
+
+            if (mesAtual < 0) {
+                mesAtual = 11;
+                anoAtual--;
+            } else if (mesAtual > 11) {
+                mesAtual = 0;
+                anoAtual++;
+            }
+
+            renderCalendario();
+        }
+
+
+        initSeloPicker();
+        listenUpdates();
+        document.getElementById('f-data').valueAsDate = new Date();
+
+/* ===============================
+   SINCRONIZA DATA → DIA DO CICLO
+   =============================== */
+document.getElementById('f-data').addEventListener('change', () => {
+    if (!dataInicioCiclo) return;
+
+    const dataAtual = parseDataLocal(
+        document.getElementById('f-data').value
+    );
+
+    const diffTime = dataAtual - dataInicioCiclo;
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24)) + 1;
+
+    document.getElementById('f-dia').value = diffDays > 0 ? diffDays : 1;
+});
+
+
+/* ===============================
+   SINCRONIZA DIA DO CICLO → DATA
+   =============================== */
+document.getElementById('f-dia').addEventListener('change', () => {
+    if (!dataInicioCiclo) return;
+
+    const diaCiclo = parseInt(document.getElementById('f-dia').value);
+    if (isNaN(diaCiclo) || diaCiclo < 1) return;
+
+    const novaData = new Date(dataInicioCiclo);
+    novaData.setDate(novaData.getDate() + (diaCiclo - 1));
+
+    document.getElementById('f-data').value = formatDataLocal(novaData);
+});
+
+
+
+function parseDataLocal(yyyyMMdd) {
+    const [y, m, d] = yyyyMMdd.split('-').map(Number);
+    return new Date(y, m - 1, d); // sem UTC
+}
+
+function formatDataLocal(date) {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    const btn = document.getElementById('btn-salvar');
+    if (!btn) {
+        console.error("❌ Botão salvar não encontrado");
+        return;
+    }
+
+    btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        console.log("🟢 Clique capturado no botão Salvar");
+        salvar();
+    });
+});
+
+
+//funções para ser utilizadas com cautela
+
+async function zerarBancoCompleto() {
+    if (!confirm("⚠️ Isso vai apagar TODAS as anotações. Continuar?")) return;
+
+    const ref = db
+        .collection('casais')
+        .doc(casalID)
+        .collection('anotacoes');
+
+    while (true) {
+        const snap = await ref.limit(500).get();
+        if (snap.empty) break;
+
+        const batch = db.batch();
+        snap.docs.forEach(doc => batch.delete(doc.ref));
+        await batch.commit();
+    }
+
+    anotacoes = [];
+    dataInicioCiclo = null;
+
+    alert("🗑️ Banco zerado com sucesso!");
+    location.reload();
+}
+
+async function confirmarApagarTudo() {
+    const ok = confirm(
+        "⚠️ ATENÇÃO!\n\n" +
+        "Isso vai apagar TODAS as anotações deste casal.\n" +
+        "Essa ação NÃO pode ser desfeita.\n\n" +
+        "Deseja continuar?"
+    );
+
+    if (!ok) return;
+
+    try {
+        const ref = db
+            .collection('casais')
+            .doc(casalID)
+            .collection('anotacoes');
+
+        while (true) {
+            const snap = await ref.limit(500).get();
+            if (snap.empty) break;
+
+            const batch = db.batch();
+            snap.docs.forEach(doc => batch.delete(doc.ref));
+            await batch.commit();
+        }
+
+        // Limpa estado local
+        anotacoes = [];
+        dataInicioCiclo = null;
+
+        alert("🗑️ Todas as anotações foram apagadas com sucesso!");
+        location.reload();
+
+    } catch (err) {
+        console.error(err);
+        alert("❌ Erro ao apagar dados");
+    }
+}
+
+    </script>
+</body>
+</html>
