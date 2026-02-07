@@ -41,7 +41,9 @@
     border-bottom: 5px solid white;
 }
 
-
+.icon-star {
+    color: #ff00dd;
+}
 
     </style>
 
@@ -54,6 +56,7 @@
         
         /* Cores Oficiais MOB */
         .bg-red { background-color: #ff0000; color: white; }
+        .bg-pink { background-color: #ffffff; color: white; border: 1px solid #ddd; }
         .bg-yellow { background-color: #ffff00; color: black; }
         .bg-green { background-color: #008000; color: white; }
         .bg-white { background-color: #ffffff; color: black; border: 1px solid #ddd; }
@@ -80,7 +83,7 @@
             </div>
             <div class="text-blue-600 flex gap-4">
                 <i class="fas fa-sync-alt text-xl" title="Recarregar" onclick="location.reload()"></i>
-                <i class="fas fa-plus-circle text-xl" title="Sem função"></i>
+                <i class="fas fa-plus-circle text-xl cursor-pointer" title="Iniciar novo ciclo" onclick="iniciarNovoCiclo()"></i>
                 <i class="fas fa-trash-alt text-xl cursor-pointer text-red-500" title="Apagar todas as anotações" onclick="confirmarApagarTudo()">
     </i>
             </div>
@@ -117,6 +120,18 @@
                             <option value="">Selecione...</option><option>Pegajoso</option><option>Pastoso</option><option>Cremoso</option><option>Gel</option><option>Clara de ovo</option><option>Sangue</option><option>Mancha</option>
                         </select>
                     </div>
+                        <div>
+                            <label class="block text-xs font-bold text-gray-400 mb-2">
+                                TIPO DE REGRA
+                            </label>
+                            <select id="f-regra"
+                                class="w-full p-3 bg-gray-50 rounded-xl border-none ring-1 ring-gray-200">
+                                <option value="">Não informada</option>
+                                <option value="1">Regra 1</option>
+                                <option value="2">Regra 2</option>
+                                <option value="3">Regra 3</option>
+                            </select>
+                        </div>
 
                     <div class="flex items-center gap-4 bg-gray-50 p-3 rounded-xl ring-1 ring-gray-200">
                         <i class="fas fa-thermometer-half text-red-500"></i>
@@ -169,19 +184,29 @@
 
         <!-- 4. VISUALIZAÇÃO TABELA -->
         <section id="view-tabela" class="view-content">
-            <div class="bg-white p-2 rounded-xl shadow-sm border overflow-x-auto hide-scroll">
-                <table class="w-full border-collapse">
-                    <tr id="tab-dia-mes" class="bg-gray-50"></tr>
-                    <tr id="tab-selos"></tr>
-                    <tr id="tab-temp"></tr>
-                    <tr id="tab-relacao"></tr>
-                </table>
-            </div>
+            <div id="tabelas-ciclos" class="space-y-10"></div>
         </section>
 
         <!-- 5. VISUALIZAÇÃO GRÁFICO -->
         <section id="view-grafico" class="view-content">
             <div class="bg-white p-4 rounded-2xl border shadow-sm">
+
+                <!-- 🔽 FILTRO POR CICLO -->
+                <div class="mb-3">
+                    <label class="block text-xs font-bold text-gray-400 mb-1">
+                        FILTRAR POR CICLO
+                    </label>
+
+                    <select
+                        id="filtro-ciclo"
+                        class="w-full p-2 rounded-lg border ring-1 ring-gray-200 text-sm"
+                        onchange="renderGrafico()"
+                    >
+                        <option value="all">Todos os ciclos</option>
+                    </select>
+                </div>
+
+                <!-- 📈 GRÁFICO -->
                 <canvas id="tempChart"></canvas>
             </div>
         </section>
@@ -239,6 +264,8 @@
         let anoAtual = new Date().getFullYear();
         let dataInicioCiclo = null;
         let unsubscribeUpdates = null;
+        let cicloAtualId = 1;
+        let ciclos = [];
 
         const selosDisponiveis = [
             // 🔴 Sangramento
@@ -253,6 +280,7 @@
 
             // ⬜ Observações
             { id: 'w_obs', class: 'bg-white', icon: 'fa-baby' },          // observação interna
+            { id: 'w_star', class: 'bg-pink', icon: 'fa-star' },
             { id: 'w_none', class: 'bg-white', txt: '' },                 // sem observação
             { id: 't_only', class: 'bg-gray', icon: 'fa-thermometer-half' }, // só temperatura
 
@@ -267,15 +295,15 @@ function renderConteudoSelo(s) {
     if (!s) return '';
 
     // 🔴 Sangramento intenso → 3 gotas
-        if (s.id === 'r1') {
-            return `
-                <div class="grid grid-cols-2 gap-x-1 gap-y-0 justify-items-center">
-                    <i class="fa-solid fa-droplet text-white text-[11px]"></i>
-                    <i class="fa-solid fa-droplet text-white text-[11px]"></i>
-                    <i class="fa-solid fa-droplet text-white text-[11px] col-span-2"></i>
-                </div>
-            `;
-        }
+    if (s.id === 'r1') {
+        return `
+            <div class="grid grid-cols-2 gap-x-1 gap-y-0 justify-items-center">
+                <i class="fa-solid fa-droplet text-white text-[11px]"></i>
+                <i class="fa-solid fa-droplet text-white text-[11px]"></i>
+                <i class="fa-solid fa-droplet text-white text-[11px] col-span-2"></i>
+            </div>
+        `;
+    }
 
     // 🔴 Sangramento leve → 1 gota
     if (s.id === 'r2') {
@@ -286,12 +314,13 @@ function renderConteudoSelo(s) {
         `;
     }
 
-    // 🌡️ Ícones (temperatura, bebê, etc)
+    // 🌡️ / ⭐ Ícones (temperatura, bebê, estrela, etc)
     if (s.icon) {
-        return `<i class="fas ${s.icon}"></i>`;
+        const extraClass = s.id === 'w_star' ? 'icon-star' : '';
+        return `<i class="fas ${s.icon} ${extraClass}"></i>`;
     }
 
-    // 🔢 Texto
+    // 🔢 Texto (selos numéricos)
     return s.txt || '';
 }
 
@@ -314,6 +343,7 @@ function renderConteudoSelo(s) {
 
                 w_obs: 'Observação interna (sem muco visível)',
                 w_none: 'Sem observação',
+                w_star: 'Dia do Ápice',
 
                 t_only: 'Registro apenas de temperatura basal',
 
@@ -372,24 +402,25 @@ async function salvar() {
     try {
         const dataValor = document.getElementById('f-data').value;
 
-        const payload = {
-            diaCiclo: parseInt(document.getElementById('f-dia').value),
-            data: dataValor,
-            sinto: document.getElementById('f-sinto').value,
-            vejo: document.getElementById('f-vejo').value,
-            temp: document.getElementById('f-temp').value || null,
-            obs: document.getElementById('f-obs').value || '',
-            selo: seloSelecionado,
-            relacao: relacaoAtiva,
-            atualizadoEm: firebase.firestore.FieldValue.serverTimestamp()
-        };
+const payload = {
+    cicloId: cicloAtualId,
+    diaCiclo: parseInt(document.getElementById('f-dia').value),
+    data: dataValor,
+    sinto: document.getElementById('f-sinto').value,
+    vejo: document.getElementById('f-vejo').value,
+    regra: document.getElementById('f-regra').value || null,
+    temp: document.getElementById('f-temp').value || null,
+    obs: document.getElementById('f-obs').value || '',
+    selo: seloSelecionado,
+    relacao: relacaoAtiva,
+    atualizadoEm: firebase.firestore.FieldValue.serverTimestamp()
+};
 
         await db
             .collection('casais')
             .doc(casalID)
             .collection('anotacoes')
-            .doc(dataValor)
-            .set(payload, { merge: true });
+            .add(payload);
 
         limparForm();
         console.log("✔️ Salvo");
@@ -425,6 +456,7 @@ function limparForm() {
     // Limpa campos
     document.getElementById('f-sinto').value = "";
     document.getElementById('f-vejo').value = "";
+    document.getElementById('f-regra').value = "";
     document.getElementById('f-temp').value = "";
     document.getElementById('f-obs').value = "";
 
@@ -452,11 +484,29 @@ function listenUpdates() {
         .orderBy('data')
         .onSnapshot(snapshot => {
 
-            anotacoes = [];
-            snapshot.forEach(doc => anotacoes.push(doc.data()));
+anotacoes = [];
+const ciclosSet = new Set();
 
-            // 🔥 DEFINIÇÃO CORRETA DO INÍCIO DO CICLO
-            const inicio = anotacoes.find(a => a.diaCiclo === 1);
+snapshot.forEach(doc => {
+    const data = doc.data();
+    anotacoes.push(data);
+    ciclosSet.add(data.cicloId);
+});
+
+ciclos = Array.from(ciclosSet).sort((a,b) => a-b);
+atualizarFiltroCiclo();
+
+            // 🔥 Define ciclo atual automaticamente
+            if (ciclos.length > 0) {
+                cicloAtualId = ciclos[ciclos.length - 1];
+            } else {
+                cicloAtualId = 1;
+            }
+
+            // 🔥 Define início do ciclo atual
+            const inicio = anotacoes.find(
+                a => a.cicloId === cicloAtualId && a.diaCiclo === 1
+            );
 
             if (inicio && inicio.data) {
                 dataInicioCiclo = parseDataLocal(inicio.data);
@@ -465,7 +515,9 @@ function listenUpdates() {
             document.getElementById('sync-status').innerText = "Sincronizado";
             document.getElementById('sync-status').className = "text-green-500";
         });
+        
 }
+
 
 
 function changeTab(tabId) {
@@ -578,57 +630,204 @@ function renderCalendario() {
 }
 
 
-        function renderLista() {
-            const container = document.getElementById('lista-container');
-            container.innerHTML = anotacoes.map(a => `
+function renderLista() {
+    const container = document.getElementById('lista-container');
+    if (!container) return;
+
+    container.innerHTML = '';
+
+    if (ciclos.length === 0) {
+        container.innerHTML = '<p class="text-gray-400 text-sm">Nenhuma anotação.</p>';
+        return;
+    }
+
+    ciclos.forEach(cicloId => {
+        const anotCiclo = anotacoes
+            .filter(a => a.cicloId === cicloId)
+            .sort((a, b) => a.diaCiclo - b.diaCiclo);
+
+        if (anotCiclo.length === 0) return;
+
+        const bloco = document.createElement('div');
+        bloco.className = 'space-y-3';
+
+        bloco.innerHTML = `
+            <div class="font-bold text-blue-700 mt-6 mb-2">
+                Ciclo ${cicloId}
+            </div>
+        `;
+
+        anotCiclo.forEach(a => {
+            bloco.innerHTML += `
                 <div class="bg-white p-4 rounded-xl border flex gap-4 items-center">
                     <div class="w-10 h-14 ${a.selo.class} rounded flex items-center justify-center font-bold">
                         ${renderConteudoSelo(a.selo)}
                     </div>
+
                     <div class="flex-1">
                         <div class="flex justify-between items-center">
-                            <span class="font-bold text-blue-900">Dia ${a.diaCiclo} • ${a.sinto}</span>
+                            <span class="font-bold text-blue-900">
+                                Dia ${a.diaCiclo} • ${a.sinto || '--'}
+                            </span>
                             ${a.relacao ? '<i class="fas fa-heart text-red-500"></i>' : ''}
                         </div>
-                        <p class="text-xs text-gray-400">${a.vejo} • Temp: ${a.temp || '--'}°C</p>
-                        ${a.obs ? `<p class="text-[10px] italic text-gray-500 mt-1 border-t pt-1">${a.obs}</p>` : ''}
+
+                        <p class="text-xs text-gray-400">
+                            ${a.vejo || '--'} • Temp: ${a.temp || '--'}°C
+                        </p>
+
+                        ${a.obs ? `
+                            <p class="text-[10px] italic text-gray-500 mt-1 border-t pt-1">
+                                ${a.obs}
+                            </p>` : ''}
                     </div>
                 </div>
-            `).join('');
+            `;
+        });
+
+        container.appendChild(bloco);
+    });
+}
+
+
+function renderTabela() {
+    const container = document.getElementById('tabelas-ciclos');
+    if (!container) return;
+
+    container.innerHTML = '';
+
+    if (ciclos.length === 0) {
+        container.innerHTML = '<p class="text-gray-400 text-sm">Nenhum ciclo registrado.</p>';
+        return;
+    }
+
+    ciclos.forEach(cicloId => {
+        const anotCiclo = anotacoes
+            .filter(a => a.cicloId === cicloId)
+            .sort((a, b) => a.diaCiclo - b.diaCiclo);
+
+        const tabela = document.createElement('div');
+        tabela.className = 'bg-white p-4 rounded-xl border shadow-sm overflow-x-auto';
+
+        let html = `
+            <div class="font-bold text-blue-700 mb-2">
+                Ciclo ${cicloId}
+            </div>
+
+            <table class="w-full border-collapse text-center text-[10px]">
+                <tr>
+                    <td class="grade-pdf-cell bg-gray-100 font-bold">DIA</td>
+        `;
+
+        // 🔹 38 colunas
+        for (let i = 1; i <= 38; i++) {
+            html += `<td class="grade-pdf-cell">${i}</td>`;
         }
 
-        function renderTabela() {
-            const rDia = document.getElementById('tab-dia-mes');
-            const rSelo = document.getElementById('tab-selos');
-            const rTemp = document.getElementById('tab-temp');
-            const rRel = document.getElementById('tab-relacao');
+        html += `</tr><tr>
+            <td class="grade-pdf-cell bg-gray-100 font-bold">SELO</td>`;
 
-            rDia.innerHTML = '<td class="grade-pdf-cell bg-gray-50">DIA</td>';
-            rSelo.innerHTML = '<td class="grade-pdf-cell bg-gray-100">SELO</td>';
-            rTemp.innerHTML = '<td class="grade-pdf-cell bg-gray-100">TEMP</td>';
-            rRel.innerHTML = '<td class="grade-pdf-cell bg-gray-100">ATO</td>';
+        for (let i = 1; i <= 38; i++) {
+            const a = anotCiclo.find(x => x.diaCiclo === i);
+            html += `
+                <td class="grade-pdf-cell h-10 ${a ? a.selo.class : ''}">
+                    ${a ? renderConteudoSelo(a.selo) : ''}
+                </td>`;
+        }
 
-            for(let i=1; i<=31; i++) {
-                const a = anotacoes.find(x => parseInt(x.diaCiclo) === i);
-                rDia.innerHTML += `<td class="grade-pdf-cell">${i}</td>`;
-                rSelo.innerHTML += `<td class="grade-pdf-cell ${a ? a.selo.class : ''} h-10">${a ? renderConteudoSelo(a.selo) : ''}</td>`;
-                rTemp.innerHTML += `<td class="grade-pdf-cell text-[8px]">${a ? a.temp : ''}</td>`;
-                rRel.innerHTML += `<td class="grade-pdf-cell">${a && a.relacao ? '<i class="fas fa-heart text-red-500"></i>' : ''}</td>`;
+        html += `</tr><tr>
+            <td class="grade-pdf-cell bg-gray-100 font-bold">TEMP</td>`;
+
+        for (let i = 1; i <= 38; i++) {
+            const a = anotCiclo.find(x => x.diaCiclo === i);
+            html += `<td class="grade-pdf-cell">${a?.temp ?? ''}</td>`;
+        }
+
+        html += `</tr><tr>
+            <td class="grade-pdf-cell bg-gray-100 font-bold">ATO</td>`;
+
+        for (let i = 1; i <= 38; i++) {
+            const a = anotCiclo.find(x => x.diaCiclo === i);
+            html += `
+                <td class="grade-pdf-cell">
+                    ${a?.relacao ? '<i class="fas fa-heart text-red-500"></i>' : ''}
+                </td>`;
+        }
+
+        html += `</tr></table>`;
+
+        tabela.innerHTML = html;
+        container.appendChild(tabela);
+    });
+}
+
+let chart;
+
+function renderGrafico() {
+    const canvas = document.getElementById('tempChart');
+    if (!canvas) return;
+
+    const ctx = canvas.getContext('2d');
+    if (chart) chart.destroy();
+
+    const filtro = document.getElementById('filtro-ciclo');
+    const cicloSelecionado = filtro ? filtro.value : 'all';
+
+    let dados = anotacoes.filter(a => a.temp !== null && a.temp !== '');
+
+    // 🔹 Aplica filtro por ciclo
+    if (cicloSelecionado !== 'all') {
+        const cicloId = parseInt(cicloSelecionado);
+        dados = dados
+            .filter(a => a.cicloId === cicloId)
+            .sort((a, b) => a.diaCiclo - b.diaCiclo);
+    } else {
+        // 🔹 Todos os ciclos → ordem cronológica
+        dados = dados.sort((a, b) =>
+            parseDataLocal(a.data) - parseDataLocal(b.data)
+        );
+    }
+
+    chart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: cicloSelecionado === 'all'
+                ? dados.map(a => a.data)
+                : dados.map(a => `D${a.diaCiclo}`),
+
+            datasets: [{
+                label: 'Temperatura Basal',
+                data: dados.map(a => a.temp),
+                borderColor: '#ef4444',
+                backgroundColor: 'rgba(239,68,68,0.1)',
+                tension: 0.2,
+                spanGaps: true
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: { display: true }
+            },
+            scales: {
+                y: {
+                    title: {
+                        display: true,
+                        text: 'Temperatura (°C)'
+                    }
+                },
+                x: {
+                    title: {
+                        display: true,
+                        text: cicloSelecionado === 'all'
+                            ? 'Linha do tempo'
+                            : 'Dia do ciclo'
+                    }
+                }
             }
         }
-
-        let chart;
-        function renderGrafico() {
-            const ctx = document.getElementById('tempChart').getContext('2d');
-            if(chart) chart.destroy();
-            chart = new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels: anotacoes.map(a => a.diaCiclo),
-                    datasets: [{ label: 'Temp Basal', data: anotacoes.map(a => a.temp), borderColor: '#ef4444', tension: 0.1 }]
-                }
-            });
-        }
+    });
+}
 
         function sugerirSelo() {
             const sinto = document.getElementById('f-sinto').value;
@@ -810,6 +1009,152 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 });
 
+function iniciarNovoCiclo() {
+    const ok = confirm(
+        "Deseja iniciar um NOVO CICLO?\n\n" +
+        "O novo ciclo começará no dia seguinte ao último registro."
+    );
+    if (!ok) return;
+
+    // 🔹 Descobre a última data registrada (linha do tempo manda)
+    let ultimaData = null;
+
+    anotacoes.forEach(a => {
+        if (a.data) {
+            const d = parseDataLocal(a.data);
+            if (!ultimaData || d > ultimaData) {
+                ultimaData = d;
+            }
+        }
+    });
+
+    // 🔹 Se não houver registros, usa hoje
+    if (!ultimaData) {
+        ultimaData = new Date();
+    }
+
+    // 🔹 Novo ciclo começa no dia seguinte
+    const novaDataInicio = new Date(ultimaData);
+    novaDataInicio.setDate(novaDataInicio.getDate() + 1);
+
+    // 🔹 Define novo ciclo
+    cicloAtualId = ciclos.length > 0
+        ? Math.max(...ciclos) + 1
+        : 1;
+
+    ciclos.push(cicloAtualId);
+
+    // 🔹 Define início do novo ciclo
+    dataInicioCiclo = novaDataInicio;
+
+    // 🔹 Reseta formulário
+    document.getElementById('f-dia').value = 1;
+    document.getElementById('f-data').value = formatDataLocal(novaDataInicio);
+    document.getElementById('f-sinto').value = "";
+    document.getElementById('f-vejo').value = "";
+    document.getElementById('f-temp').value = "";
+    document.getElementById('f-obs').value = "";
+
+    relacaoAtiva = false;
+    seloSelecionado = null;
+
+    document
+        .querySelectorAll('.selo-grid-item')
+        .forEach(i => i.classList.remove('selected'));
+
+    alert(`🆕 Novo ciclo iniciado (Ciclo ${cicloAtualId})`);
+}
+
+
+
+function renderTabelasCiclos() {
+    const container = document.getElementById('tabelas-ciclos');
+    if (!container) return;
+
+    container.innerHTML = ""; // limpa UMA vez
+
+    ciclos.forEach((ciclo, index) => {
+        const div = document.createElement('div');
+        div.className = "bg-white p-4 rounded-xl shadow-sm border";
+
+        div.innerHTML = `
+            <h3 class="font-bold text-blue-700 mb-3">
+                Ciclo ${index + 1}
+            </h3>
+
+            ${gerarTabelaCiclo(ciclo)}
+        `;
+
+        container.appendChild(div);
+    });
+}
+
+function gerarTabelaCiclo(ciclo) {
+    let html = `<table class="w-full border-collapse text-[10px]">
+        <tr>
+            <td class="grade-pdf-cell bg-gray-50 font-bold">DIA</td>`;
+
+    for (let i = 1; i <= 38; i++) {
+        html += `<td class="grade-pdf-cell">${i}</td>`;
+    }
+
+    html += `</tr>
+        <tr>
+            <td class="grade-pdf-cell bg-gray-100 font-bold">SELO</td>`;
+
+    for (let i = 1; i <= 38; i++) {
+        const a = ciclo.anotacoes.find(x => x.diaCiclo === i);
+        html += `<td class="grade-pdf-cell ${a ? a.selo.class : ''}">
+                    ${a ? renderConteudoSelo(a.selo) : ''}
+                 </td>`;
+    }
+
+    html += `</tr>
+        <tr>
+            <td class="grade-pdf-cell bg-gray-100 font-bold">TEMP</td>`;
+
+    for (let i = 1; i <= 38; i++) {
+        const a = ciclo.anotacoes.find(x => x.diaCiclo === i);
+        html += `<td class="grade-pdf-cell">${a?.temp || ''}</td>`;
+    }
+
+    html += `</tr>
+        <tr>
+            <td class="grade-pdf-cell bg-gray-100 font-bold">ATO</td>`;
+
+    for (let i = 1; i <= 38; i++) {
+        const a = ciclo.anotacoes.find(x => x.diaCiclo === i);
+        html += `<td class="grade-pdf-cell">
+                    ${a?.relacao ? '❤️' : ''}
+                 </td>`;
+    }
+
+    html += `</tr></table>`;
+
+    return html;
+}
+
+function criarNovoCiclo() {
+    const novoCiclo = {
+        id: ciclos.length + 1,
+        anotacoes: []
+    };
+
+    ciclos.push(novoCiclo);
+
+    cicloAtivo = novoCiclo; // novas anotações vão para ele
+
+    renderTabelasCiclos();
+
+    // opcional: rolar para o novo ciclo
+    setTimeout(() => {
+        document
+          .getElementById('tabelas-ciclos')
+          .lastElementChild
+          .scrollIntoView({ behavior: 'smooth' });
+    }, 100);
+}
+
 
 //funções para ser utilizadas com cautela
 
@@ -873,6 +1218,20 @@ async function confirmarApagarTudo() {
         console.error(err);
         alert("❌ Erro ao apagar dados");
     }
+}
+
+function atualizarFiltroCiclo() {
+    const select = document.getElementById('filtro-ciclo');
+    if (!select) return;
+
+    select.innerHTML = `<option value="all">Todos os ciclos</option>`;
+
+    ciclos.forEach(cicloId => {
+        const opt = document.createElement('option');
+        opt.value = cicloId;
+        opt.textContent = `Ciclo ${cicloId}`;
+        select.appendChild(opt);
+    });
 }
 
     </script>
