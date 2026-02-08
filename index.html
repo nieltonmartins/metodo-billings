@@ -125,36 +125,29 @@
 }
 
 @media print {
+
+    * {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+    }
+
     body {
         background: white !important;
-        font-size: 11px;
     }
 
-    header,
-    nav,
-    #modal-impressao {
-        display: none !important;
-    }
-
-    /* 🔒 Esconde TODAS as views */
-    .view-content {
-        display: none !important;
-    }
-
-    /* ✅ MOSTRA SOMENTE as selecionadas */
-    .view-content.print-ativo {
-        display: block !important;
-    }
-
-    table {
+    /* 🚫 nunca quebrar ciclo no meio */
+    .ciclo-print {
+        break-inside: avoid;
         page-break-inside: avoid;
     }
 
-    .tabela-wrapper {
-        overflow: visible !important;
+    /* ✅ quebra FORÇADA após cada 2 ciclos */
+    .ciclo-print:nth-of-type(2n) {
+        break-after: page;
+        page-break-after: always;
     }
-}
 
+}
 
     </style>
 
@@ -206,7 +199,7 @@
                 <!-- 🖨️ IMPRIMIR -->
                 <i class="fas fa-print text-xl cursor-pointer"
                 title="Imprimir / Salvar PDF"
-                onclick="abrirModalImpressao()"></i>
+                onclick="window.print()"></i>
 
                 <!-- já existentes -->
                 <i class="fas fa-sync-alt text-xl" title="Recarregar" onclick="location.reload()"></i>
@@ -365,6 +358,8 @@
         <i class="fas fa-chart-line"></i>
         <span class="text-[10px]">Gráfico</span>
     </button>
+
+    
 </nav>
 
 
@@ -805,8 +800,7 @@ function renderTabela() {
             .sort((a, b) => a.diaCiclo - b.diaCiclo);
 
         const card = document.createElement('div');
-        card.className =
-            'bg-white p-4 rounded-xl border shadow-sm';
+        card.className = 'bg-white p-4 rounded-xl border shadow-sm ciclo-print';
 
         let html = `
             <div class="font-bold text-blue-700 mb-2">
@@ -1438,37 +1432,6 @@ function fecharModalImpressao() {
     document.getElementById('modal-impressao').classList.add('hidden');
 }
 
-function imprimirSelecionados() {
-    fecharModalImpressao();
-
-    // Remove marca de impressão de tudo
-    document.querySelectorAll('.view-content').forEach(v => {
-        v.classList.remove('print-ativo');
-    });
-
-    // Marca apenas os selecionados
-    const checks = document.querySelectorAll(
-        '#modal-impressao input[type=checkbox]:checked'
-    );
-
-    checks.forEach(c => {
-        const el = document.getElementById(c.value);
-        if (el) {
-            el.classList.add('print-ativo');
-        }
-    });
-
-    // Aguarda o DOM atualizar e imprime
-    setTimeout(() => {
-        window.print();
-
-        // 🔄 Limpa após impressão
-        document.querySelectorAll('.view-content').forEach(v => {
-            v.classList.remove('print-ativo');
-        });
-    }, 200);
-}
-
 
 function iniciarSincronizacao() {
     db.collection('casais')
@@ -1509,27 +1472,29 @@ function iniciarSincronizacao() {
         );
 }
 
+function limparForm() {
+    document.getElementById('f-dia').value = 1;
+    document.getElementById('f-data').valueAsDate = new Date();
+    document.getElementById('f-sinto').value = '';
+    document.getElementById('f-vejo').value = '';
+    document.getElementById('f-regra').value = '';
+    document.getElementById('f-temp').value = '';
+    document.getElementById('f-obs').value = '';
 
-                                                                                                            </script>
+    relacaoAtiva = false;
+    seloSelecionado = null;
 
-<div id="modal-impressao"
-     class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50">
+    // remove seleção visual dos selos
+    document
+        .querySelectorAll('.selo-grid-item')
+        .forEach(i => i.classList.remove('selected'));
 
-    <div class="bg-white p-6 rounded-xl w-80 space-y-4">
-        <h3 class="font-bold text-blue-700">Imprimir / PDF</h3>
+    document.getElementById('btn-relacao').className =
+        "w-10 h-10 rounded-full bg-white flex items-center justify-center shadow text-gray-300";
+}
 
-        <label><input type="checkbox" value="view-lista" checked> Lista</label><br>
-        <label><input type="checkbox" value="view-calendario"> Calendário</label><br>
-        <label><input type="checkbox" value="view-tabela" checked> Tabela</label><br>
-        <label><input type="checkbox" value="view-grafico"> Gráfico</label>
 
-        <div class="flex justify-end gap-2 pt-4">
-            <button onclick="fecharModalImpressao()">Cancelar</button>
-            <button class="bg-blue-600 text-white px-4 py-2 rounded"
-                    onclick="imprimirSelecionados()">Imprimir</button>
-        </div>
-    </div>
-</div>
+ </script>
 
-                                                                                                            </body>
-                                                                                                            </html>
+ </body>
+</html>
