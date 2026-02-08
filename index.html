@@ -606,12 +606,42 @@ async function salvar() {
             atualizadoEm: firebase.firestore.FieldValue.serverTimestamp()
         };
 
+        // 🧹 REGRA DE OURO:
+        // 🔒 GARANTE APENAS 1 ANOTAÇÃO POR DIA NO CICLO
+        const duplicadas = anotacoes.filter(a =>
+            a.cicloId === cicloAtualId &&
+            parseInt(a.diaCiclo) === parseInt(payload.diaCiclo) &&
+            a.id !== anotacaoEmEdicaoId
+        );
+
+        for (const dup of duplicadas) {
+            await db
+                .collection('casais')
+                .doc(casalID)
+                .collection('anotacoes')
+                .doc(dup.id)
+                .delete();
+        }
+
         // 🔹 Salva no Firestore
-        await db
-            .collection('casais')
-            .doc(casalID)
-            .collection('anotacoes')
-            .add(payload);
+        if (anotacaoEmEdicaoId) {
+            // ✏️ EDITAR anotação existente
+            await db
+                .collection('casais')
+                .doc(casalID)
+                .collection('anotacoes')
+                .doc(anotacaoEmEdicaoId)
+                .update(payload);
+
+            anotacaoEmEdicaoId = null;
+        } else {
+            // ➕ NOVA anotação
+            await db
+                .collection('casais')
+                .doc(casalID)
+                .collection('anotacoes')
+                .add(payload);
+        }
 
         limparForm();
         console.log("✔️ Salvo com sucesso");
@@ -625,7 +655,6 @@ async function salvar() {
     btn.disabled = false;
     btn.textContent = "Salvar no Diário";
 }
-
 
 function changeTab(tabId) {
     // Views
@@ -766,7 +795,7 @@ function renderLista() {
 
         anotCiclo.forEach(a => {
             bloco.innerHTML += `
-                <div class="bg-white p-4 rounded-xl border flex gap-4 items-center">
+                <div class="bg-white p-4 rounded-xl border flex gap-4 items-center cursor-pointer hover:ring-2 hover:ring-blue-200" onclick='editarAnotacao(${JSON.stringify(a)})'>
                     <div class="w-10 h-14 ${a.selo.class} rounded flex items-center justify-center font-bold">
                         ${renderConteudoSelo(a.selo)}
                     </div>
@@ -1284,9 +1313,7 @@ function criarNovoCiclo() {
 
 //funções para ser utilizadas com cautela
 
-async function zerarBancoCompleto() {
-    if (!confirm("⚠️ Isso vai apagar TODAS as anotações. Continuar?")) return;
-
+async function zerarBancoCompleto(semReload = false) {
     const ref = db
         .collection('casais')
         .doc(casalID)
@@ -1304,9 +1331,12 @@ async function zerarBancoCompleto() {
     anotacoes = [];
     dataInicioCiclo = null;
 
-    alert("🗑️ Banco zerado com sucesso!");
-    location.reload();
+    if (!semReload) {
+        alert("🗑️ Banco zerado com sucesso!");
+        location.reload();
+    }
 }
+
 
 async function confirmarApagarTudo() {
     const ok = confirm(
@@ -1424,8 +1454,8 @@ async function importarBanco() {
             return;
         }
 
-        // 🔥 Apaga tudo
-        await zerarBancoCompleto();
+        // 🔥 Apaga tudo SEM recarregar a página
+        await zerarBancoCompleto(true);
 
         // 🔄 Restaura
         for (const a of backup.anotacoes) {
@@ -1464,13 +1494,19 @@ function iniciarSincronizacao() {
                 anotacoes = [];
 
                 snapshot.forEach(doc => {
-                    anotacoes.push(doc.data());
+                    anotacoes.push({
+                        id: doc.id,      // 👈 ESSENCIAL
+                        ...doc.data()
+                    });
                 });
-
                 // 🔹 Reconstrói lista de ciclos
                 const set = new Set();
                 anotacoes.forEach(a => set.add(a.cicloId));
                 ciclos = Array.from(set).sort((a, b) => a - b);
+
+                // 🔹 Reconstrói ciclo ativo e continuação
+                reconstruirEstadoAtual();
+
 
                 // 🔹 Atualiza status visual
                 const status = document.getElementById('sync-status');
@@ -1505,15 +1541,80 @@ function limparForm() {
     relacaoAtiva = false;
     seloSelecionado = null;
 
+    // 🔴 IMPORTANTE: sai do modo edição
+    anotacaoEmEdicaoId = null;
+
     // remove seleção visual dos selos
     document
         .querySelectorAll('.selo-grid-item')
         .forEach(i => i.classList.remove('selected'));
 
+    // reseta botão de relação
     document.getElementById('btn-relacao').className =
         "w-10 h-10 rounded-full bg-white flex items-center justify-center shadow text-gray-300";
 }
 
+
+function reconstruirEstadoAtual() {
+    if (anotacoes.length === 0) {
+        cicloAtualId = 1;
+        dataInicioCiclo = null;
+        return;
+    }
+
+    // 🔹 Último ciclo existente
+    cicloAtualId = Math.max(...anotacoes.map(a => a.cicloId));
+
+    // 🔹 Anotações do último ciclo
+    const anotacoesUltimoCiclo = anotacoes
+        .filter(a => a.cicloId === cicloAtualId)
+        .sort((a, b) => a.diaCiclo - b.diaCiclo);
+
+    if (anotacoesUltimoCiclo.length === 0) return;
+
+    // 🔹 Primeira anotação do ciclo = data de início
+    const primeira = anotacoesUltimoCiclo[0];
+    dataInicioCiclo = parseDataLocal(primeira.data);
+
+    // 🔹 Última anotação
+    const ultima = anotacoesUltimoCiclo[anotacoesUltimoCiclo.length - 1];
+
+    // 🔹 Prepara o formulário para continuar
+    document.getElementById('f-dia').value = ultima.diaCiclo + 1;
+
+    const proximaData = new Date(dataInicioCiclo);
+    proximaData.setDate(proximaData.getDate() + ultima.diaCiclo);
+
+    document.getElementById('f-data').value = formatDataLocal(proximaData);
+}
+
+
+function editarAnotacao(a) {
+    anotacaoEmEdicaoId = a.id;
+
+    document.getElementById('f-dia').value   = a.diaCiclo;
+    document.getElementById('f-data').value  = a.data;
+    document.getElementById('f-sinto').value = a.sinto || '';
+    document.getElementById('f-vejo').value  = a.vejo || '';
+    document.getElementById('f-regra').value = a.regra || '';
+    document.getElementById('f-temp').value  = a.temp || '';
+    document.getElementById('f-obs').value   = a.obs || '';
+
+    relacaoAtiva = !!a.relacao;
+    // 🔹 Marca selo visualmente no picker
+setTimeout(() => {
+    document
+        .querySelectorAll('.selo-grid-item')
+        .forEach((el, index) => {
+            const s = selosDisponiveis[index];
+            if (s && s.id === a.selo.id) {
+                el.classList.add('selected');
+            }
+        });
+}, 100);
+
+    changeTab('view-anotar');
+}
 
  </script>
 
