@@ -126,6 +126,7 @@
 
 @media print {
 
+    /* 🎨 força impressão de cores */
     * {
         -webkit-print-color-adjust: exact !important;
         print-color-adjust: exact !important;
@@ -135,19 +136,39 @@
         background: white !important;
     }
 
-    /* 🚫 nunca quebrar ciclo no meio */
+    /* ❌ ESCONDE TUDO POR PADRÃO */
+    header,
+    nav,
+    #view-anotar,
+    #view-calendario,
+    #view-lista,
+    #view-grafico {
+        display: none !important;
+    }
+
+    /* ✅ MOSTRA SOMENTE A TABELA */
+    #view-tabela {
+        display: block !important;
+    }
+
+    /* garante que o container apareça */
+    #tabelas-ciclos {
+        display: block !important;
+    }
+
+    /* 🚫 nunca quebrar um ciclo no meio */
     .ciclo-print {
         break-inside: avoid;
         page-break-inside: avoid;
     }
 
-    /* ✅ quebra FORÇADA após cada 2 ciclos */
+    /* 📄 quebra de página a cada 2 ciclos */
     .ciclo-print:nth-of-type(2n) {
-        break-after: page;
         page-break-after: always;
+        break-after: page;
     }
-
 }
+
 
     </style>
 
