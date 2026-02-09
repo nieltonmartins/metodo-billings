@@ -50,115 +50,23 @@
 }
 
 
-/* padronização celulas da tabela */
-.grade-pdf-cell {
-    width: 32px;
-    max-width: 32px;
-
-    height: 38px; /* ligeiramente mais alto */
-    border: 1px solid #e5e7eb;
-    text-align: center;
-    vertical-align: middle;
-
-    font-size: 10px;
-    line-height: 1.1;
-}
-
-
-@media (min-width: 1200px) {
-    .tabela-ciclo {
-        width: 100%;
-        table-layout: fixed;
-    }
-
-    /* Todas EXCETO a primeira coluna */
-    .tabela-ciclo .grade-pdf-cell:not(.col-label) {
-        width: calc((100% - 56px) / 38);
-    }
-}
-
-/* Coluna de rótulos (DIA / SELO / TEMP / ATO) */
-.col-label {
-    width: 56px;
-    min-width: 56px;
-    max-width: 56px;
-
-    font-weight: bold;
-    background-color: #f9fafb;
-}
-
-.tabela-wrapper {
-    width: 100%;
-    overflow-x: auto;
-}
-
-.tabela-ciclo {
-    width: 100%;
-    border-collapse: collapse;
-    table-layout: fixed;
-}
-
-.col-label {
-    width: 64px;
-    min-width: 64px;
-    max-width: 64px;
-    font-weight: bold;
-    background-color: #f9fafb;
-    text-align: left;
-    padding-left: 6px;
-}
-
-.grade-pdf-cell {
-    height: 36px;
-    border: 1px solid #e5e7eb;
-    text-align: center;
-    vertical-align: middle;
-    font-size: 10px;
-    line-height: 1;
-}
-
-@media (min-width: 1024px) {
-    .tabela-ciclo .grade-pdf-cell:not(.col-label) {
-        width: calc((100% - 64px) / 38);
-    }
-}
-
-
-.col-label {
-    width: 64px;
-    min-width: 64px;
-    font-weight: bold;
-    background-color: #f9fafb;
-    text-align: left;
-    padding-left: 6px;
-}
-
-/* 🔥 vertical APENAS no conteúdo, NÃO na célula */
-.data-cell span {
-    display: inline-block;
-    writing-mode: vertical-rl;
-    text-orientation: mixed;
-    font-size: 9px;
-    line-height: 1;
-}
-
 /* ===============================
-   BASE (mobile / padrão)
+   BASE — PC + MOBILE (visualização)
 =============================== */
 
 .tabela-wrapper {
     width: 100%;
-    overflow-x: auto;
+    overflow-x: auto; /* scroll horizontal no mobile */
 }
 
 .tabela-ciclo {
-    width: max-content;        /* 🔥 permite scroll no mobile */
     border-collapse: collapse;
     table-layout: fixed;
+    width: max-content; /* cresce conforme número de colunas */
 }
 
 .grade-pdf-cell {
-    min-width: 28px;           /* largura mínima p/ mobile */
+    min-width: 28px;
     height: 36px;
     border: 1px solid #e5e7eb;
     text-align: center;
@@ -177,21 +85,21 @@
 }
 
 /* ===============================
-   DESKTOP (telas largas)
+   DESKTOP — telas largas
 =============================== */
 @media (min-width: 1200px) {
     .tabela-ciclo {
-        width: 100%;           /* 🔥 ocupa toda a tela */
+        width: 100%; /* ocupa exatamente o container */
     }
 
     .tabela-ciclo .grade-pdf-cell:not(.col-label) {
-        width: calc((100% - 64px) / 38); /* 🔥 38 colunas perfeitas */
-        min-width: unset;      /* 🔥 libera o cálculo */
+        width: calc((100% - 64px) / 38); /* 38 colunas exatas */
+        min-width: unset;
     }
 }
 
 /* ===============================
-   DATA (vertical somente o texto)
+   DATA — texto vertical
 =============================== */
 .data-cell span {
     display: inline-block;
@@ -201,20 +109,28 @@
     line-height: 1;
 }
 
-
+/* ===============================
+   PRINT / PDF — CORREÇÃO DEFINITIVA
+=============================== */
 @media print {
 
-    /* 🎨 força impressão de cores */
     * {
         -webkit-print-color-adjust: exact !important;
         print-color-adjust: exact !important;
     }
 
-    body {
-        background: white !important;
+    @page {
+        size: A4 landscape;
+        margin: 10mm;
     }
 
-    /* ❌ ESCONDE TUDO POR PADRÃO */
+    body {
+        background: white !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+
+    /* ❌ REMOVE TODO O LAYOUT DO APP */
     header,
     nav,
     #view-anotar,
@@ -224,68 +140,54 @@
         display: none !important;
     }
 
-    /* ✅ MOSTRA SOMENTE A TABELA */
-    #view-tabela {
-        display: block !important;
+    /* 🔥 QUEBRA O CONTAINER CENTRAL */
+    main {
+        max-width: none !important;
+        margin: 0 !important;
+        padding: 0 !important;
     }
 
-    /* garante que o container apareça */
+    #view-tabela,
     #tabelas-ciclos {
         display: block !important;
+        margin: 0 !important;
+        padding: 0 !important;
     }
 
-    /* 🚫 nunca quebrar um ciclo no meio */
-    .ciclo-print {
-        break-inside: avoid;
-        page-break-inside: avoid;
-    }
-
-    .ciclo-print:nth-of-type(2n) {
-        page-break-after: always;
-    }
-
-
-    /* 📄 quebra de página a cada 2 ciclos */
-    .ciclo-print:nth-of-type(2n) {
-        page-break-after: always;
-        break-after: page;
-    }
-}
-
-@media print and (max-width: 1024px) {
-
-    /* 🔒 Força viewport real */
-    html, body {
-        width: 1400px !important;
-        min-width: 1400px !important;
-        overflow: visible !important;
-    }
-
-    /* 🔒 Tabela não pode encolher */
+    /* 🔒 TABELA COMEÇA NA ESQUERDA REAL */
     .tabela-wrapper {
         overflow: visible !important;
+        margin: 0 !important;
+        padding: 0 !important;
     }
 
     .tabela-ciclo {
-        width: 1400px !important;
-        min-width: 1400px !important;
+        width: auto !important;
+        margin-left: 0 !important;
         table-layout: fixed !important;
     }
 
-    /* 🔒 Colunas fixas */
-    .tabela-ciclo .grade-pdf-cell:not(.col-label) {
-        width: 34px !important;
-        min-width: 34px !important;
+    .grade-pdf-cell {
+        width: 28px !important;
     }
 
     .col-label {
         width: 64px !important;
-        min-width: 64px !important;
+    }
+
+    .ciclo-print {
+        break-inside: avoid;
+        page-break-inside: avoid;
+        page-break-after: always;
+    }
+
+    .ciclo-print:last-child {
+        page-break-after: auto;
     }
 }
 
 
-    </style>
+</style>
 
 
     <style>
