@@ -252,6 +252,38 @@
     }
 }
 
+@media print and (max-width: 1024px) {
+
+    /* 🔒 Força viewport real */
+    html, body {
+        width: 1400px !important;
+        min-width: 1400px !important;
+        overflow: visible !important;
+    }
+
+    /* 🔒 Tabela não pode encolher */
+    .tabela-wrapper {
+        overflow: visible !important;
+    }
+
+    .tabela-ciclo {
+        width: 1400px !important;
+        min-width: 1400px !important;
+        table-layout: fixed !important;
+    }
+
+    /* 🔒 Colunas fixas */
+    .tabela-ciclo .grade-pdf-cell:not(.col-label) {
+        width: 34px !important;
+        min-width: 34px !important;
+    }
+
+    .col-label {
+        width: 64px !important;
+        min-width: 64px !important;
+    }
+}
+
 
     </style>
 
