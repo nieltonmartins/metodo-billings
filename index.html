@@ -805,51 +805,61 @@ function renderLista() {
 
     container.innerHTML = '';
 
-    if (anotacoes.length === 0) {
+    if (ciclos.length === 0) {
         container.innerHTML =
             '<p class="text-gray-400 text-sm">Nenhuma anotação.</p>';
         return;
     }
 
-    // 🔽 ordem decrescente (mais recente primeiro)
-    const ordenadas = [...anotacoes].sort((a, b) =>
-        parseDataLocal(b.data) - parseDataLocal(a.data)
-    );
+    ciclos.forEach(cicloId => {
+        const anotCiclo = anotacoes
+            .filter(a => a.cicloId === cicloId)
+            .sort((a, b) => a.diaCiclo - b.diaCiclo);
 
-    ordenadas.forEach(a => {
-        const card = document.createElement('div');
-        card.className =
-            'bg-white p-4 rounded-xl border shadow-sm flex gap-4 items-start cursor-pointer';
+        if (anotCiclo.length === 0) return;
 
-        card.onclick = () => editarAnotacao(a);
+        const tipo = obterTipoDoCiclo(cicloId);
 
-        card.innerHTML = `
-            <div class="w-10 h-14 ${a.selo.class} rounded-md flex items-center justify-center text-sm font-bold">
-                ${renderConteudoSelo(a.selo)}
-            </div>
+        // 🔹 Cabeçalho do ciclo
+        const header = document.createElement('div');
+        header.className = 'mt-6 mb-2 font-bold text-blue-700';
+        header.innerText = `Ciclo ${cicloId} — ${formatarTipoCiclo(tipo)}`;
+        container.appendChild(header);
 
-            <div class="flex-1">
-                <div class="font-bold text-blue-700">
-                    Dia ${a.diaCiclo} • ${a.sinto || '—'}
+        // 🔹 Cards das anotações
+        anotCiclo.forEach(a => {
+            const card = document.createElement('div');
+            card.className =
+                'bg-white p-4 rounded-xl border shadow-sm flex gap-4 items-start mb-2 cursor-pointer';
+
+            card.onclick = () => editarAnotacao(a);
+
+            card.innerHTML = `
+                <div class="w-10 h-14 ${a.selo.class} rounded-md flex items-center justify-center text-sm font-bold">
+                    ${renderConteudoSelo(a.selo)}
                 </div>
 
-                <div class="text-xs text-gray-500 mt-1">
-                    ${a.vejo || ''} 
-                    ${a.temp ? `• Temp: ${a.temp}°C` : ''}
+                <div class="flex-1">
+                    <div class="font-bold text-blue-900">
+                        Dia ${a.diaCiclo} • ${a.sinto || '—'}
+                    </div>
+
+                    <div class="text-xs text-gray-500 mt-1">
+                        ${a.vejo || ''} 
+                        ${a.temp ? `• Temp: ${a.temp}°C` : ''}
+                    </div>
+
+                    ${a.obs ? `<div class="text-xs text-gray-400 mt-1">${a.obs}</div>` : ''}
                 </div>
 
-                ${a.obs ? `<div class="text-xs text-gray-400 mt-1">${a.obs}</div>` : ''}
-            </div>
+                ${a.relacao ? `<i class="fas fa-heart text-red-500"></i>` : ''}
+            `;
 
-            ${a.relacao
-                ? `<i class="fas fa-heart text-red-500 self-start"></i>`
-                : ''
-            }
-        `;
-
-        container.appendChild(card);
+            container.appendChild(card);
+        });
     });
 }
+
 
 function renderTabela() {
     const container = document.getElementById('tabelas-ciclos');
@@ -868,72 +878,91 @@ function renderTabela() {
             .filter(a => a.cicloId === cicloId)
             .sort((a, b) => a.diaCiclo - b.diaCiclo);
 
-        const card = document.createElement('div');
-        card.className = 'bg-white p-4 rounded-xl border shadow-sm ciclo-print';
+        if (anotCiclo.length === 0) return;
 
-        let html = `
-            <div class="font-bold text-blue-700 mb-2">
-                Ciclo ${cicloId}
-            </div>
+        const tipo = formatarTipoCiclo(obterTipoDoCiclo(cicloId));
 
-            <div class="tabela-wrapper">
-                <table class="tabela-ciclo">
-                    <tr>
-                        <td class="grade-pdf-cell col-label">DIA</td>
-        `;
-
-        // 🔹 Colunas de dia (1 a 38)
-        for (let i = 1; i <= 38; i++) {
-            html += `<td class="grade-pdf-cell">${i}</td>`;
+        // 🔹 Quebra em blocos de 38 dias
+        const blocos = [];
+        for (let i = 0; i < anotCiclo.length; i += 38) {
+            blocos.push(anotCiclo.slice(i, i + 38));
         }
 
-        // 🔹 SELO
-        html += `</tr><tr>
-            <td class="grade-pdf-cell col-label">SELO</td>`;
+        blocos.forEach((bloco, index) => {
+            const card = document.createElement('div');
+            card.className = 'bg-white p-4 rounded-xl border shadow-sm ciclo-print';
 
-        for (let i = 1; i <= 38; i++) {
-            const a = anotCiclo.find(x => x.diaCiclo === i);
-            html += `
-                <td class="grade-pdf-cell ${a ? a.selo.class : ''}">
-                    ${a ? renderConteudoSelo(a.selo) : '&nbsp;'}
-                </td>
+            const titulo =
+                index === 0
+                    ? `Ciclo ${cicloId} — ${tipo}`
+                    : `Ciclo ${cicloId} — ${tipo} (continuação)`;
+
+            let html = `
+                <div class="font-bold text-blue-700 mb-2">
+                    ${titulo}
+                </div>
+
+                <div class="tabela-wrapper">
+                    <table class="tabela-ciclo">
+                        <tr>
+                            <td class="grade-pdf-cell col-label">DIA</td>
             `;
-        }
 
-        // 🔹 TEMP
-        html += `</tr><tr>
-            <td class="grade-pdf-cell col-label">TEMP</td>`;
+            // 🔢 Numeração progressiva
+            const inicioDia = index * 38 + 1;
 
-        for (let i = 1; i <= 38; i++) {
-            const a = anotCiclo.find(x => x.diaCiclo === i);
+            for (let i = 0; i < 38; i++) {
+                html += `<td class="grade-pdf-cell">${inicioDia + i}</td>`;
+            }
+
+            // 🔹 SELO
+            html += `</tr><tr>
+                <td class="grade-pdf-cell col-label">SELO</td>`;
+
+            for (let i = 0; i < 38; i++) {
+                const a = bloco[i];
+                html += `
+                    <td class="grade-pdf-cell ${a ? a.selo.class : ''}">
+                        ${a ? renderConteudoSelo(a.selo) : '&nbsp;'}
+                    </td>
+                `;
+            }
+
+            // 🔹 TEMP
+            html += `</tr><tr>
+                <td class="grade-pdf-cell col-label">TEMP</td>`;
+
+            for (let i = 0; i < 38; i++) {
+                const a = bloco[i];
+                html += `
+                    <td class="grade-pdf-cell">
+                        ${a?.temp ?? '&nbsp;'}
+                    </td>
+                `;
+            }
+
+            // 🔹 ATO
+            html += `</tr><tr>
+                <td class="grade-pdf-cell col-label">ATO</td>`;
+
+            for (let i = 0; i < 38; i++) {
+                const a = bloco[i];
+                html += `
+                    <td class="grade-pdf-cell">
+                        ${a?.relacao ? '<i class="fas fa-heart text-red-500"></i>' : '&nbsp;'}
+                    </td>
+                `;
+            }
+
             html += `
-                <td class="grade-pdf-cell">
-                    ${a?.temp ?? '&nbsp;'}
-                </td>
+                        </tr>
+                    </table>
+                </div>
             `;
-        }
 
-        // 🔹 ATO
-        html += `</tr><tr>
-            <td class="grade-pdf-cell col-label">ATO</td>`;
-
-        for (let i = 1; i <= 38; i++) {
-            const a = anotCiclo.find(x => x.diaCiclo === i);
-            html += `
-                <td class="grade-pdf-cell">
-                    ${a?.relacao ? '<i class="fas fa-heart text-red-500"></i>' : '&nbsp;'}
-                </td>
-            `;
-        }
-
-        html += `
-                    </tr>
-                </table>
-            </div>
-        `;
-
-        card.innerHTML = html;
-        container.appendChild(card);
+            card.innerHTML = html;
+            container.appendChild(card);
+        });
     });
 }
 
@@ -1575,6 +1604,16 @@ function iniciarNovoCicloSemPrompt(tipoExistente) {
 
     document.getElementById('f-dia').value = 1;
     document.getElementById('f-data').value = formatDataLocal(novaDataInicio);
+}
+
+function formatarTipoCiclo(tipo) {
+    const mapa = {
+        'normal': 'Normal',
+        'pos-parto': 'Pós-parto',
+        'amamentacao': 'Amamentação',
+        'especial': 'Especial'
+    };
+    return mapa[tipo] || 'Normal';
 }
 
 
