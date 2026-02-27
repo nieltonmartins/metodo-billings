@@ -848,7 +848,7 @@ function renderLista() {
     ciclos.forEach(cicloId => {
         const anotCiclo = anotacoes
             .filter(a => a.cicloId === cicloId)
-            .sort((a, b) => a.diaCiclo - b.diaCiclo);
+            .sort((a, b) => b.diaCiclo - a.diaCiclo);
 
         if (anotCiclo.length === 0) return;
 
